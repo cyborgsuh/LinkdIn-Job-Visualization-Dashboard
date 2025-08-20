@@ -14,6 +14,20 @@ This dashboard allows you to upload your LinkedIn job application data and gain 
 - 📈 **Application Metrics**: Key statistics about your job search
 - 🔍 **Skills Analysis**: Analyze job descriptions and required skills
 
+## Dashboard Screenshots
+
+### Main Dashboard
+![Main Dashboard](./assets/upload.png)
+The main dashboard page where you can upload your LinkedIn job application CSV files. It displays key metrics including total applications, unique companies applied to, and your application date range, giving you a quick overview of your job search journey.
+
+### Application Analysis
+![Application Analysis](./assets/analysis.png)
+The analysis page provides detailed insights into your job search patterns through interactive visualizations. You can see your daily application trends, top companies you've applied to, and the distribution of job titles, helping you understand your application strategy.
+
+### Skills Analysis
+![Skills Analysis](./assets/skills_analysis.png)
+This page analyzes the job descriptions from your applications to identify key skills and requirements. It helps you understand the most in-demand skills in your field and can guide your skill development priorities.
+
 ## Getting Started
 
 ### Prerequisites

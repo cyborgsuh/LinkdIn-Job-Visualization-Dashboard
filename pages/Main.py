@@ -68,4 +68,5 @@ elif 'df' in st.session_state:
 
 else:
     st.info('Please upload your CSV files to begin.')
+    st.warning('The instructions for getting the CSV files from linkedIn are available in the Intro page.')
 

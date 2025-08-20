@@ -298,7 +298,7 @@ def _render_overview_metrics(df_desc: pd.DataFrame) -> None:
     )
     avg_exp = float(exp_series.mean()) if not exp_series.dropna().empty else 0.0
     exp_coverage = int(exp_series.notna().sum())
-    # Render cards
+
     c2, c3, c4 = st.columns(3)
 
     with c2:
@@ -316,7 +316,6 @@ def _df_from_uploaded_json(raw_json) -> pd.DataFrame:
     Returns a DataFrame with columns including 'title','company','description', optional 'location','skills','link'
     """
     try:
-        # Case 1: list of dicts
         if isinstance(raw_json, list):
             rows = []
             nested_detected = False
@@ -345,7 +344,6 @@ def _df_from_uploaded_json(raw_json) -> pd.DataFrame:
                     rows.append(row)
             if rows:
                 return pd.DataFrame(rows)
-        # Fallback empty
         return pd.DataFrame()
     except Exception:
         return pd.DataFrame()
@@ -367,7 +365,7 @@ def _render_lmstudio_instructions() -> None:
 
 def _embed_and_cluster_lmstudio(df_desc: pd.DataFrame, text_col: str, base_url: str, model: str, n_clusters: int, projection: str = "2D") -> pd.DataFrame | None:
     try:
-        from openai import OpenAI  # Requires: pip install openai
+        from openai import OpenAI 
     except Exception:
         st.error("Missing dependency: install with `pip install openai`. Then rerun.")
         return None
@@ -386,7 +384,6 @@ def _embed_and_cluster_lmstudio(df_desc: pd.DataFrame, text_col: str, base_url: 
 
     client = OpenAI(base_url=base_url, api_key="lm-studio")
 
-    # Batched embedding with shadcn progress
     vectors: list[list[float]] = []
     total = len(texts)
     batch_size = 32 if total > 64 else 16
@@ -405,7 +402,6 @@ def _embed_and_cluster_lmstudio(df_desc: pd.DataFrame, text_col: str, base_url: 
             return None
         completed += len(batch)
         percent = int(completed/total*100) if total else 100
-        # Try shadcn progress; fallback to a single st.progress instance
         try:
             with progress_placeholder:
                 ui.progress_bar(value=percent, max=100, label=f"Embedding {completed}/{total}", key="emb_prog")
@@ -484,14 +480,12 @@ def _lm_sig(df_desc: pd.DataFrame, text_col: str, base_url: str, model: str, n_c
     return hashlib.md5(payload.encode("utf-8")).hexdigest()
 
 
-# Check if data is available
 if 'df' not in st.session_state:
     st.warning('⚠️ Please upload your data on the main page first.')
     st.info('This page requires job application data with LinkedIn URLs to scrape job descriptions.')
 else:
     df_apps = st.session_state['df']
     
-    # Display scraping information
     with st.container(border=True):
         st.subheader("📋 Scraping Overview")
         
@@ -512,12 +506,10 @@ else:
             st.error("❌ No 'Job Url' column found in your data. Cannot proceed with scraping.")
             st.info("Make sure your CSV contains a column named 'Job Url' with LinkedIn job posting URLs.")
         else:
-            # If we already have df_desc in session, skip showing start/upload again
             has_desc = 'df_desc' in st.session_state and not st.session_state['df_desc'].empty if 'df_desc' in st.session_state else False
             if has_desc:
                 st.success('Scraped data detected. Hiding start/upload controls and showing analysis below.')
             else:
-                # Upload your own scraped data (JSON/CSV)
                 with st.container(border=True):
                     st.subheader("📤 Upload Your Own Scraped Data (Optional)")
                     with st.expander("What format should my CSV/JSON have?", expanded=False):
@@ -553,7 +545,6 @@ else:
                             if missing:
                                 st.error(f"Missing required fields: {', '.join(sorted(missing))}")
                             else:
-                                # Normalize skills column if present; if missing, extract from description
                                 if 'skills' in df_desc_custom.columns:
                                     def _normalize_skills(val):
                                         if isinstance(val, list):
@@ -580,24 +571,20 @@ else:
                         except Exception as e:
                             st.error(f"Failed to parse uploaded file: {e}")
 
-                # Single start button
                 st.markdown("---")
                 st.subheader("🚀 Start Scraping")
                 start_clicked = st.button('▶️ Start Scraping Job Descriptions', key='scrape_button', type="primary")
 
-                # Cancellation flag
                 if 'cancel_scrape' not in st.session_state:
                     st.session_state['cancel_scrape'] = False
 
                 if start_clicked:
                     st.info("💡 You can keep this running in the background and continue your work.")
 
-                    # Allow cancellation
                     cancel_clicked = st.button("✖️ Cancel Scraping", key="btn_cancel")
                     if cancel_clicked:
                         st.session_state['cancel_scrape'] = True
 
-                    # Initialize progress tracking
                     progress_container = st.container()
                     status_container = st.container()
                     results_container = st.container()
@@ -612,7 +599,6 @@ else:
                         status_text = st.empty()
                         current_job = st.empty()
 
-                    # Start scraping
                     start_time = time.time()
                     all_jobs = []
                     successful_scrapes = 0
@@ -642,7 +628,6 @@ else:
                             estimated_remaining = avg_time_per_job * remaining_jobs
                             time_estimate.text(f"⏱️ Estimated time remaining: {_format_seconds(estimated_remaining)}")
 
-                        # Scrape job details
                         job_url = row['Job Url']
                         if pd.isna(job_url):
                             failed_scrapes += 1
@@ -661,7 +646,6 @@ else:
 
                         time.sleep(1)
 
-                    # Final progress update
                     if not st.session_state.get('cancel_scrape'):
                         progress_bar.progress(1.0)
                         progress_text.text(f"✅ Complete! {successful_scrapes}/{total_count} jobs scraped successfully")
@@ -672,7 +656,6 @@ else:
                         df_desc = pd.DataFrame(all_jobs)
                         st.session_state['df_desc'] = df_desc
 
-                    # Show results summary
                     with results_container:
                         st.markdown("---")
                         st.subheader("📊 Scraping Results")
@@ -685,21 +668,17 @@ else:
                             rate = (successful_scrapes/total_count)*100 if total_count else 0
                             st.metric("📊 Success Rate", f"{rate:.1f}%")
 
-# Display existing scraped data if available (always on this page)
 if 'df_desc' in st.session_state and not st.session_state['df_desc'].empty:
     st.markdown("---")
     st.subheader("🔍 Skills Analysis from Scraped Data")
     df_desc = st.session_state['df_desc']
 
-    # Overview metrics
     with st.container(border=True):
         _render_overview_metrics(df_desc)
 
-    # First chart (unfiltered)
     with st.container(border=True):
         _render_frequently_requested_skills(df_desc)
 
-    # Focus controls (apply to charts below only)
     with st.container(border=True):
         st.markdown("### Focus the analysis (applies to the charts below)")
         st.caption("These filters do not affect the 'Frequently Requested Skills' chart above.")
@@ -710,7 +689,6 @@ if 'df_desc' in st.session_state and not st.session_state['df_desc'].empty:
         selected_skills = [s.strip() for s in selected_skills_input.split(',')] if selected_skills_input else []
         filtered_df_desc = _build_skills_focus(df_desc, selected_skills, []) if selected_skills else df_desc
 
-    # Charts that respect the focus
     with st.container(border=True):
         st.subheader("Trending Skills Over Time (filtered)")
         _render_trending_skills_over_time(filtered_df_desc)
@@ -718,7 +696,6 @@ if 'df_desc' in st.session_state and not st.session_state['df_desc'].empty:
         st.subheader("Skill Combination Network (filtered)")
         _render_skill_combination_network(filtered_df_desc)
 
-    # Inject the LM Studio clustering UI at the end of analysis section
     with st.container(border=True):
         st.subheader("🔬 Embed and Cluster Job Descriptions (LM Studio)")
         _render_lmstudio_instructions()
