@@ -11,6 +11,10 @@ from datetime import datetime, timedelta
 import networkx as nx
 import plotly.graph_objects as go
 import streamlit_shadcn_ui as ui
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+import io
+import base64
 
 st.title('Scrape and Analyze Job Skills')
 st.markdown("---")
@@ -103,6 +107,228 @@ def _format_seconds(total_seconds: float) -> str:
     mins = seconds // 60
     secs = seconds % 60
     return f"{mins} min {secs} sec"
+
+def create_wordcloud_from_text(text, title="Word Cloud", max_words=100, width=800, height=400):
+    """Create a word cloud from text and return as base64 encoded image"""
+    try:
+        # Clean and prepare text
+        if not text or pd.isna(text):
+            return None
+        
+        # Remove common stop words and clean text
+        stop_words = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your', 'his', 'her', 'its', 'our', 'their', 'mine', 'yours', 'his', 'hers', 'ours', 'theirs'}
+        
+        # Clean text - remove special characters and convert to lowercase
+        clean_text = re.sub(r'[^\w\s]', ' ', str(text).lower())
+        words = clean_text.split()
+        
+        # Filter out stop words and short words
+        filtered_words = [word for word in words if word not in stop_words and len(word) > 2]
+        
+        if not filtered_words:
+            return None
+        
+        # Create word cloud
+        wordcloud = WordCloud(
+            width=width, 
+            height=height, 
+            background_color='white',
+            max_words=max_words,
+            colormap='viridis',
+            collocations=False,
+            random_state=42
+        ).generate(' '.join(filtered_words))
+        
+        # Create matplotlib figure
+        plt.figure(figsize=(10, 6))
+        plt.imshow(wordcloud, interpolation='bilinear')
+        plt.axis('off')
+        plt.title(title, fontsize=16, pad=20)
+        
+        # Convert to base64 for display in Streamlit
+        img_buffer = io.BytesIO()
+        plt.savefig(img_buffer, format='png', bbox_inches='tight', dpi=300, facecolor='white')
+        img_buffer.seek(0)
+        img_str = base64.b64encode(img_buffer.getvalue()).decode()
+        plt.close()
+        
+        return img_str
+    except Exception as e:
+        st.error(f"Error creating word cloud: {str(e)}")
+        return None
+
+def create_wordcloud_from_skills(skills_list, title="Skills Word Cloud", max_words=50, width=800, height=400):
+    """Create a word cloud from skills list and return as base64 encoded image"""
+    try:
+        if not skills_list or not isinstance(skills_list, list):
+            return None
+        
+        # Flatten skills if they're nested
+        flat_skills = []
+        for skill in skills_list:
+            if isinstance(skill, str):
+                flat_skills.append(skill)
+            elif isinstance(skill, list):
+                flat_skills.extend(skill)
+        
+        if not flat_skills:
+            return None
+        
+        # Create frequency dictionary
+        skill_freq = Counter(flat_skills)
+        
+        if not skill_freq:
+            return None
+        
+        # Create word cloud
+        wordcloud = WordCloud(
+            width=width, 
+            height=height, 
+            background_color='white',
+            max_words=max_words,
+            colormap='plasma',
+            collocations=False,
+            random_state=42
+        ).generate_from_frequencies(skill_freq)
+        
+        # Create matplotlib figure
+        plt.figure(figsize=(10, 6))
+        plt.imshow(wordcloud, interpolation='bilinear')
+        plt.axis('off')
+        plt.title(title, fontsize=16, pad=20)
+        
+        # Convert to base64 for display in Streamlit
+        img_buffer = io.BytesIO()
+        plt.savefig(img_buffer, format='png', bbox_inches='tight', dpi=300, facecolor='white')
+        img_buffer.seek(0)
+        img_str = base64.b64encode(img_buffer.getvalue()).decode()
+        plt.close()
+        
+        return img_str
+    except Exception as e:
+        st.error(f"Error creating skills word cloud: {str(e)}")
+        return None
+
+def _render_wordcloud_analysis(df_desc):
+    """Render word cloud analysis section"""
+    st.subheader("☁️ Word Cloud Analysis")
+    
+    # Create tabs for different word cloud types
+    tab1, tab2, tab3 = st.tabs(["📝 Job Descriptions", "🛠️ Skills", "📊 Custom Analysis"])
+    
+    with tab1:
+        st.markdown("### Job Descriptions Word Cloud")
+        st.caption("Shows the most frequent words across all job descriptions")
+        
+        # Combine all descriptions
+        all_descriptions = ' '.join([
+            str(desc) for desc in df_desc['description'].dropna() 
+            if desc and str(desc).strip() != 'No description available'
+        ])
+        
+        if all_descriptions and len(all_descriptions.strip()) > 10:
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                # Word cloud controls
+                max_words_desc = st.slider("Max words for descriptions", 50, 200, 100, key="desc_words")
+                width_desc = st.slider("Width", 400, 1200, 800, key="desc_width")
+                height_desc = st.slider("Height", 300, 800, 400, key="desc_height")
+            
+            with col2:
+                st.caption("💡 **Tip**: Adjust the sliders to customize your word cloud appearance")
+            
+            # Generate and display word cloud
+            img_str = create_wordcloud_from_text(
+                all_descriptions, 
+                "Job Descriptions Word Cloud", 
+                max_words_desc, 
+                width_desc, 
+                height_desc
+            )
+            
+            if img_str:
+                st.image(f"data:image/png;base64,{img_str}", use_container_width =True)
+            else:
+                st.info("No valid descriptions found for word cloud generation.")
+        else:
+            st.info("No job descriptions available for word cloud analysis.")
+    
+    with tab2:
+        st.markdown("### Skills Word Cloud")
+        st.caption("Shows the most frequent skills across all job postings")
+        
+        if 'skills' in df_desc.columns and not df_desc['skills'].empty:
+            # Collect all skills
+            all_skills = []
+            for skills in df_desc['skills']:
+                if isinstance(skills, list):
+                    all_skills.extend(skills)
+                elif isinstance(skills, str):
+                    all_skills.extend([s.strip() for s in skills.split(',') if s.strip()])
+            
+            if all_skills:
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    max_words_skills = st.slider("Max words for skills", 20, 100, 50, key="skills_words")
+                    width_skills = st.slider("Width", 400, 1200, 800, key="skills_width")
+                    height_skills = st.slider("Height", 300, 800, 400, key="skills_height")
+                
+                with col2:
+                    st.caption("💡 **Tip**: Skills word clouds help identify the most in-demand technical skills")
+                
+                # Generate and display skills word cloud
+                img_str = create_wordcloud_from_skills(
+                    all_skills, 
+                    "Skills Word Cloud", 
+                    max_words_skills, 
+                    width_skills, 
+                    height_skills
+                )
+                
+                if img_str:
+                    st.image(f"data:image/png;base64,{img_str}", use_container_width =True)
+                else:
+                    st.info("Could not generate skills word cloud.")
+            else:
+                st.info("No skills found for word cloud analysis.")
+        else:
+            st.info("No skills data available for word cloud analysis.")
+    
+    with tab3:
+        st.markdown("### Custom Text Analysis")
+        st.caption("Analyze custom text or specific job descriptions")
+        
+        custom_text = st.text_area(
+            "Enter custom text for analysis",
+            height=150,
+            placeholder="Paste job description text here for custom word cloud analysis..."
+        )
+        
+        if custom_text and len(custom_text.strip()) > 10:
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                max_words_custom = st.slider("Max words", 50, 200, 100, key="custom_words")
+                width_custom = st.slider("Width", 400, 1200, 800, key="custom_width")
+                height_custom = st.slider("Height", 300, 800, 400, key="custom_height")
+            
+            with col2:
+                st.caption("💡 **Tip**: Use this for analyzing specific job descriptions or custom text")
+            
+            if st.button("Generate Custom Word Cloud", type="primary"):
+                img_str = create_wordcloud_from_text(
+                    custom_text, 
+                    "Custom Text Word Cloud", 
+                    max_words_custom, 
+                    width_custom, 
+                    height_custom
+                )
+                
+                if img_str:
+                    st.image(f"data:image/png;base64,{img_str}", use_column_width=True)
+                else:
+                    st.error("Could not generate word cloud from the provided text.")
+        else:
+            st.info("Enter some text above to generate a custom word cloud.")
 
 def _render_frequently_requested_skills(df_desc: pd.DataFrame) -> None:
     if 'skills' not in df_desc.columns or df_desc['skills'].empty:
@@ -695,6 +921,9 @@ if 'df_desc' in st.session_state and not st.session_state['df_desc'].empty:
     with st.container(border=True):
         st.subheader("Skill Combination Network (filtered)")
         _render_skill_combination_network(filtered_df_desc)
+
+    with st.container(border=True):
+        _render_wordcloud_analysis(df_desc)
 
     with st.container(border=True):
         st.subheader("🔬 Embed and Cluster Job Descriptions (LM Studio)")
